@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "Learning App",
+    "slug": "learning-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#6200ee"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.learning-app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#6200ee"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
