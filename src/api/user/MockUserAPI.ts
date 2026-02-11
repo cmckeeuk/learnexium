@@ -1,4 +1,21 @@
-import { UserAPI, PremiumStatus, LessonStatus, CourseProgress } from './UserAPI';
+import {
+  UserAPI,
+  PremiumStatus,
+  LessonStatus,
+  CourseProgress,
+  RewardsSummary,
+  RewardEvent,
+  BadgeProgress,
+  CertificateRecord,
+  RewardMutationResult,
+} from './UserAPI';
+
+const EMPTY_REWARD_MUTATION_RESULT: RewardMutationResult = {
+  xpAwarded: 0,
+  masteryAwarded: false,
+  badgeIdsEarned: [],
+  certificateIdsIssued: [],
+};
 
 export class MockUserAPI implements UserAPI {
   private premium: boolean = false;
@@ -57,4 +74,40 @@ export class MockUserAPI implements UserAPI {
     return [];
   }
   async clearAllProgress(): Promise<void> {}
+
+  // ─── Rewards (mock no-op) ────────────────────────────────────────────────
+
+  async markFlashcardsCompleted(
+    _courseId: string,
+    _lessonId: string,
+  ): Promise<RewardMutationResult> {
+    return EMPTY_REWARD_MUTATION_RESULT;
+  }
+  async markQuizCompleted(
+    _courseId: string,
+    _lessonId: string,
+    _score: number,
+    _totalQuestions: number,
+  ): Promise<RewardMutationResult> {
+    return EMPTY_REWARD_MUTATION_RESULT;
+  }
+  async getRewardsSummary(): Promise<RewardsSummary> {
+    return {
+      totalXp: 0,
+      level: 1,
+      currentLevelXp: 0,
+      nextLevelXp: 200,
+      badgesEarned: 0,
+      certificatesEarned: 0,
+    };
+  }
+  async getRecentRewardEvents(_limit?: number): Promise<RewardEvent[]> {
+    return [];
+  }
+  async getBadges(): Promise<BadgeProgress[]> {
+    return [];
+  }
+  async getCertificates(): Promise<CertificateRecord[]> {
+    return [];
+  }
 }

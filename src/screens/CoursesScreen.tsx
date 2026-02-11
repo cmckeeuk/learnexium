@@ -26,7 +26,8 @@ const getDifficultyTone = (difficulty?: string) => {
 const nativeCourseTitleFontFamily = Platform.select({
   ios: 'AvenirNext-Bold',
   android: 'sans-serif-medium',
-  default: undefined,
+  web: 'Avenir Next, Avenir, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
+  default: 'Avenir Next, Avenir, Segoe UI, Roboto, Helvetica Neue, Arial, sans-serif',
 });
 
 export default function CoursesScreen() {

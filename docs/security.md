@@ -26,7 +26,7 @@
 
 ## Important Gaps
 
-1. Firebase rules are not versioned in this repo (`firestore.rules`, `storage.rules` not present).
+1. Storage rules are not versioned in this repo yet (`storage.rules` not present).
 2. Storage content appears public by URL design; premium assets are not hard-protected server-side.
 3. App Check is not integrated in runtime code.
 4. Cloud Function endpoint in `functions/src/index.ts` is a placeholder, so no secured publish API path is in place yet.

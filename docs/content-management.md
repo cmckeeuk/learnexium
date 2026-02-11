@@ -68,6 +68,19 @@ Expected structure (enforced by parser logic):
    - `[FLASHCARD]` with `Front:` / `Back:`
    - `[QUIZ_CHOICE]`, `[QUIZ_TRUE_FALSE]`, `[QUIZ_SHORT_ANSWER]`
 
+## Lesson Interaction Constraints
+
+To keep reward/progress logic deterministic, parser enforces:
+
+- Max one `flashcards` block per lesson.
+- Max one `quiz` block per lesson.
+
+If authoring creates multiple sets:
+
+- Extra flashcard blocks are merged into the first flashcards deck.
+- Quiz questions are merged into one lesson quiz, and quiz block id is normalized to `quiz-{lessonId}`.
+- Parser logs warnings so content authors can fix source docs.
+
 ## Home Document Format
 
 Parsed by `parseHomeDoc.ts`:

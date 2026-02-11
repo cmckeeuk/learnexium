@@ -598,13 +598,69 @@ function parseQuizQuestion(
 //   1. "Lesson -" H1 heading → start new lesson, parse its metadata
 //   2. H2/H3 headings → heading blocks
 //   3. [CALLOUT] → callout block
-//   4. [FLASHCARD] → flashcard deck (consecutive cards grouped together)
-//   5. [QUIZ_*] → quiz questions (grouped per lesson)
+//   4. [FLASHCARD] → flashcard deck (single deck per lesson; extras merged)
+//   5. [QUIZ_*] → quiz questions (single quiz block per lesson; questions merged)
 //   6. YouTube URLs → video blocks
 //   7. Bullet items → list blocks (consecutive bullets grouped)
 //   8. Images → image blocks (uploaded to Storage)
 //   9. Everything else → text blocks with rich formatting
 // ─────────────────────────────────────────────────────────────────────────────
+
+export function enforceInteractiveBlockConstraints(
+  lessonId: string,
+  lessonTitle: string,
+  blocks: any[],
+): any[] {
+  const normalized: any[] = [];
+  const normalizedQuizId = `quiz-${lessonId}`;
+
+  let mergedFlashcardsDecks = 0;
+  let mergedQuizBlocks = 0;
+  let firstFlashcardsBlock: any | null = null;
+  let firstQuizBlock: any | null = null;
+
+  for (const block of blocks) {
+    if (block?.type === 'flashcards') {
+      if (!firstFlashcardsBlock) {
+        firstFlashcardsBlock = {
+          ...block,
+          cards: Array.isArray(block.cards) ? [...block.cards] : [],
+        };
+        normalized.push(firstFlashcardsBlock);
+      } else {
+        mergedFlashcardsDecks++;
+        const extraCards = Array.isArray(block.cards) ? block.cards : [];
+        firstFlashcardsBlock.cards.push(...extraCards);
+      }
+      continue;
+    }
+
+    if (block?.type === 'quiz') {
+      if (!firstQuizBlock) {
+        firstQuizBlock = { ...block, quizId: normalizedQuizId };
+        normalized.push(firstQuizBlock);
+      } else {
+        mergedQuizBlocks++;
+      }
+      continue;
+    }
+
+    normalized.push(block);
+  }
+
+  if (mergedFlashcardsDecks > 0) {
+    console.warn(
+      `[parseGoogleDoc] Lesson "${lessonTitle}" (${lessonId}) contains multiple flashcards blocks; merged into one deck.`,
+    );
+  }
+  if (mergedQuizBlocks > 0) {
+    console.warn(
+      `[parseGoogleDoc] Lesson "${lessonTitle}" (${lessonId}) contains multiple quiz blocks; merged into one quiz block.`,
+    );
+  }
+
+  return normalized;
+}
 
 async function parseLessons(
   paragraphs: NormalizedParagraph[],
@@ -616,6 +672,7 @@ async function parseLessons(
   let blocks: any[] = [];
   let blockId = 1;
   let imageCount = 0;
+  let warnedSplitQuizSection = false;
 
   console.log(`  Scanning ${paragraphs.length} paragraphs for lessons...`);
 
@@ -629,9 +686,14 @@ async function parseLessons(
     if (isLessonHeading(para)) {
       // Save previous lesson
       if (currentLesson) {
-        currentLesson.blocks = blocks;
+        const constrainedBlocks = enforceInteractiveBlockConstraints(
+          currentLesson.lessonId,
+          currentLesson.title,
+          blocks,
+        );
+        currentLesson.blocks = constrainedBlocks;
         lessons.push(currentLesson);
-        console.log(`    Saved "${currentLesson.title}" — ${blocks.length} blocks`);
+        console.log(`    Saved "${currentLesson.title}" — ${constrainedBlocks.length} blocks`);
       }
 
       // Initialize new lesson
@@ -649,6 +711,7 @@ async function parseLessons(
       blocks = [];
       blockId = 1;
       imageCount = 0;
+      warnedSplitQuizSection = false;
 
       // Parse lesson metadata lines (Summary, Duration, Premium)
       const metaConsumed = parseLessonMetadata(currentLesson, paragraphs, i + 1);
@@ -727,6 +790,14 @@ async function parseLessons(
     if (quizType) {
       const result = parseQuizQuestion(quizType, paragraphs, i);
       if (result.question) {
+        const lastBlock = blocks[blocks.length - 1];
+        if (!warnedSplitQuizSection && blocks.some((b: any) => b.type === 'quiz') && lastBlock?.type !== 'quiz') {
+          console.warn(
+            `[parseGoogleDoc] Lesson "${currentLesson.title}" (${currentLesson.lessonId}) has quiz questions in multiple sections; merged into one quiz.`,
+          );
+          warnedSplitQuizSection = true;
+        }
+
         // Add quiz block reference (once per lesson)
         const quizId = `quiz-${currentLesson.lessonId}`;
         if (!blocks.find((b: any) => b.type === 'quiz' && b.quizId === quizId)) {
@@ -777,9 +848,14 @@ async function parseLessons(
 
   // Save last lesson
   if (currentLesson) {
-    currentLesson.blocks = blocks;
+    const constrainedBlocks = enforceInteractiveBlockConstraints(
+      currentLesson.lessonId,
+      currentLesson.title,
+      blocks,
+    );
+    currentLesson.blocks = constrainedBlocks;
     lessons.push(currentLesson);
-    console.log(`    Saved "${currentLesson.title}" — ${blocks.length} blocks`);
+    console.log(`    Saved "${currentLesson.title}" — ${constrainedBlocks.length} blocks`);
   }
 
   return lessons;

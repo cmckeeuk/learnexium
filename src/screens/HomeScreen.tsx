@@ -4,7 +4,7 @@ import { YStack, XStack, Text, View } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
 import { useAPI } from '../context/APIContext';
 import { HomeConfig } from '../api/home/HomeAPI';
-import { CourseSummary } from '../api/course/CourseAPI';
+import { CourseDetail, CourseSummary } from '../api/course/CourseAPI';
 import { CourseProgress } from '../api/user/UserAPI';
 import { useNavigation, useFocusEffect, StackActions } from '@react-navigation/native';
 import { buildVersionedImageUri, prefetchImages } from '../utils/imageCache';
@@ -12,6 +12,7 @@ import { buildVersionedImageUri, prefetchImages } from '../utils/imageCache';
 interface CourseWithProgress {
   summary: CourseSummary;
   progress: CourseProgress;
+  detail: CourseDetail | null;
 }
 
 const nativeCourseTitleFontFamily = Platform.select({
@@ -61,11 +62,14 @@ export default function HomeScreen() {
       setConfig(homeConfig);
       setTotalCourses(summaries.length);
 
-      // Load progress for all courses
+      // Load course details and progress for all courses so lesson counts match
+      // Course Detail screen behavior and resume logic stays consistent.
       const courseProgress: CourseWithProgress[] = await Promise.all(
         summaries.map(async (s) => {
-          const p = await userAPI.getCourseProgress(s.courseId, s.lessonCount);
-          return { summary: s, progress: p };
+          const detail = await courseAPI.getCourseDetail(s.courseId).catch(() => null);
+          const lessonCount = detail?.lessons.length ?? s.lessonCount;
+          const p = await userAPI.getCourseProgress(s.courseId, lessonCount);
+          return { summary: s, progress: p, detail };
         }),
       );
 
@@ -92,7 +96,9 @@ export default function HomeScreen() {
 
       let foundResume = false;
       for (const best of withActivity) {
-        const courseSummary = summaries.find(s => s.courseId === best.courseId);
+        const courseEntry = courseProgress.find(c => c.summary.courseId === best.courseId);
+        const courseSummary = courseEntry?.summary;
+        const courseDetail = courseEntry?.detail;
 
         if (best.currentLessonId) {
           // Has an in-progress lesson — use it directly
@@ -100,33 +106,28 @@ export default function HomeScreen() {
           setResumeLessonId(best.currentLessonId);
           setResumeProgress(best);
           setResumeCourseName(courseSummary?.title ?? null);
-          try {
-            const detail = await courseAPI.getCourseDetail(best.courseId);
-            const lesson = detail.lessons.find(l => l.lessonId === best.currentLessonId);
-            setResumeLessonTitle(lesson?.title ?? null);
-          } catch {
-            setResumeLessonTitle(null);
-          }
+          const detail = courseDetail ?? await courseAPI.getCourseDetail(best.courseId).catch(() => null);
+          const lesson = detail?.lessons.find(l => l.lessonId === best.currentLessonId);
+          setResumeLessonTitle(lesson?.title ?? null);
           foundResume = true;
           break;
         }
 
         // No in-progress lesson — find the first unstarted lesson from course detail
-        try {
-          const detail = await courseAPI.getCourseDetail(best.courseId);
-          const completedSet = new Set(best.completedLessonIds);
-          const nextLesson = detail.lessons.find(l => !completedSet.has(l.lessonId));
-          if (nextLesson) {
-            setResumeCourseId(best.courseId);
-            setResumeLessonId(nextLesson.lessonId);
-            setResumeLessonTitle(nextLesson.title);
-            setResumeProgress(best);
-            setResumeCourseName(courseSummary?.title ?? null);
-            foundResume = true;
-            break;
-          }
-        } catch {
-          // Try next course
+        const detail = courseDetail ?? await courseAPI.getCourseDetail(best.courseId).catch(() => null);
+        if (!detail) {
+          continue;
+        }
+        const completedSet = new Set(best.completedLessonIds);
+        const nextLesson = detail.lessons.find(l => !completedSet.has(l.lessonId));
+        if (nextLesson) {
+          setResumeCourseId(best.courseId);
+          setResumeLessonId(nextLesson.lessonId);
+          setResumeLessonTitle(nextLesson.title);
+          setResumeProgress(best);
+          setResumeCourseName(courseSummary?.title ?? null);
+          foundResume = true;
+          break;
         }
       }
 

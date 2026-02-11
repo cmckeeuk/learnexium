@@ -5,12 +5,17 @@ import { Feather } from '@expo/vector-icons';
 import YoutubePlayer, { YoutubeIframeRef } from 'react-native-youtube-iframe';
 import { useAPI } from '../context/APIContext';
 import { CourseDetail, Lesson, ContentBlock, TextSpan } from '../api/course/CourseAPI';
-import { LessonState } from '../api/user/UserAPI';
+import { LessonState, RewardMutationResult } from '../api/user/UserAPI';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { QuizBlock } from '../components/blocks/QuizBlock';
 import { FlashcardsBlock } from '../components/blocks/FlashcardsBlock';
 import LockedLessonScreen from '../components/LockedLessonScreen';
 import { buildVersionedImageUri, prefetchImages } from '../utils/imageCache';
+import {
+  useRewardAnimation,
+} from '../context/RewardAnimationContext';
+import type { RewardAnimationRect } from '../context/RewardAnimationContext';
+import { useRewardToast } from '../context/RewardToastContext';
 
 type LessonRouteProp = RouteProp<{ params: { courseId: string; lessonId: string } }, 'params'>;
 
@@ -26,8 +31,30 @@ const nativeHeadingFontFamily = Platform.select({
   default: undefined,
 });
 
+const BADGE_TITLE_BY_ID: Record<string, string> = {
+  'first-steps': 'First Steps',
+  'card-crusher': 'Card Crusher',
+  'quiz-starter': 'Quiz Starter',
+  'perfect-score': 'Perfect Score',
+  'on-a-roll': 'On a Roll',
+  'course-finisher': 'Course Finisher',
+};
+const LESSON_COMPLETION_BOTTOM_THRESHOLD_PX = 64;
+
+function formatBadgeTitle(badgeId: string): string {
+  const knownTitle = BADGE_TITLE_BY_ID[badgeId];
+  if (knownTitle) return knownTitle;
+  return badgeId
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
 export default function LessonScreen() {
   const { courseAPI, userAPI } = useAPI();
+  const { emitRewardAnimation } = useRewardAnimation();
+  const { showRewardToast } = useRewardToast();
   const route = useRoute<LessonRouteProp>();
   const { courseId, lessonId } = route.params;
 
@@ -66,6 +93,29 @@ export default function LessonScreen() {
   const completedRef = useRef(false);
   const contentHeightRef = useRef(0);
   const viewHeightRef = useRef(0);
+
+  const markLessonCompletedOnce = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    setLessonState('completed');
+    void userAPI.markLessonCompleted(courseId, lessonId).catch((error) => {
+      console.warn('[LessonScreen] Failed to persist lesson completion', error);
+    });
+  }, [courseId, lessonId, userAPI]);
+
+  const tryCompleteByScrollPosition = useCallback((
+    contentHeight: number,
+    viewportHeight: number,
+    offsetY: number,
+  ) => {
+    if (completedRef.current) return;
+    if (contentHeight <= 0 || viewportHeight <= 0) return;
+
+    const distanceFromBottom = contentHeight - viewportHeight - offsetY;
+    if (distanceFromBottom <= LESSON_COMPLETION_BOTTOM_THRESHOLD_PX) {
+      markLessonCompletedOnce();
+    }
+  }, [markLessonCompletedOnce]);
 
   const markInlineResuming = useCallback((videoId: string) => {
     if (resumeInlineTimeoutRef.current) {
@@ -130,51 +180,37 @@ export default function LessonScreen() {
       }
 
       // Completion tracking
-      if (completedRef.current) return;
-      const distanceFromBottom =
-        contentSize.height - layoutMeasurement.height - contentOffset.y;
-      if (distanceFromBottom < 50) {
-        completedRef.current = true;
-        userAPI.markLessonCompleted(courseId, lessonId);
-        setLessonState('completed');
-      }
+      tryCompleteByScrollPosition(
+        contentSize.height,
+        layoutMeasurement.height,
+        contentOffset.y,
+      );
     },
-    [courseId, lessonId, userAPI, floatingVideoId, floatingDismissed, floatingPlaying, videoBlockY],
+    [floatingVideoId, floatingDismissed, floatingPlaying, videoBlockY, tryCompleteByScrollPosition],
   );
 
   const handleContentSizeChange = useCallback(
     (_w: number, h: number) => {
       contentHeightRef.current = h;
-      // If content is shorter than the viewport the user can't scroll,
-      // so treat it as already fully visible.
-      if (
-        !completedRef.current &&
-        viewHeightRef.current > 0 &&
-        h <= viewHeightRef.current
-      ) {
-        completedRef.current = true;
-        userAPI.markLessonCompleted(courseId, lessonId);
-        setLessonState('completed');
-      }
+      tryCompleteByScrollPosition(
+        h,
+        viewHeightRef.current,
+        scrollOffsetRef.current,
+      );
     },
-    [courseId, lessonId, userAPI],
+    [tryCompleteByScrollPosition],
   );
 
   const handleLayout = useCallback(
     (e: LayoutChangeEvent) => {
       viewHeightRef.current = e.nativeEvent.layout.height;
-      // Re-check: content may already be smaller than viewport
-      if (
-        !completedRef.current &&
-        contentHeightRef.current > 0 &&
-        contentHeightRef.current <= e.nativeEvent.layout.height
-      ) {
-        completedRef.current = true;
-        userAPI.markLessonCompleted(courseId, lessonId);
-        setLessonState('completed');
-      }
+      tryCompleteByScrollPosition(
+        contentHeightRef.current,
+        e.nativeEvent.layout.height,
+        scrollOffsetRef.current,
+      );
     },
-    [courseId, lessonId, userAPI],
+    [tryCompleteByScrollPosition],
   );
 
   useEffect(() => {
@@ -221,6 +257,14 @@ export default function LessonScreen() {
   const loadLesson = async () => {
     try {
       setLoading(true);
+      // Reset per-lesson completion tracking in case this screen instance is reused
+      // by navigation (e.g. Home "Continue Lesson" deep-linking into Courses stack).
+      completedRef.current = false;
+      contentHeightRef.current = 0;
+      viewHeightRef.current = 0;
+      scrollOffsetRef.current = 0;
+      setLessonState('not-started');
+
       const detail = await courseAPI.getCourseDetail(courseId);
       const lessonData = detail.lessons.find(l => l.lessonId === lessonId);
       
@@ -383,6 +427,115 @@ export default function LessonScreen() {
     };
   }, [showMiniPlayer, floatingVideoId]);
 
+  const handleFlashcardsCompleted = useCallback(({ source }: { source?: RewardAnimationRect }) => {
+    void (async () => {
+      let result: RewardMutationResult;
+      try {
+        result = await userAPI.markFlashcardsCompleted(courseId, lessonId);
+      } catch (error) {
+        console.warn('[LessonScreen] Failed to persist flashcards reward', error);
+        return;
+      }
+
+      if (result.xpAwarded > 0) {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:flashcards`,
+          type: 'xp',
+          source,
+          xpDelta: result.xpAwarded,
+          tokenVariant: 'flashcards-image',
+        });
+        showRewardToast({
+          kind: 'xp',
+          message: `+${result.xpAwarded} XP earned`,
+        });
+      }
+
+      result.badgeIdsEarned.forEach((badgeId) => {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:badge:${badgeId}`,
+          type: 'badge',
+          badgeId,
+          source,
+        });
+        showRewardToast({
+          kind: 'badge',
+          message: `Badge unlocked: ${formatBadgeTitle(badgeId)}`,
+        });
+      });
+
+      result.certificateIdsIssued.forEach((certificateId) => {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:certificate:${certificateId}`,
+          type: 'certificate',
+          source,
+        });
+        showRewardToast({
+          kind: 'certificate',
+          message: 'Certificate unlocked',
+        });
+      });
+    })();
+  }, [courseId, lessonId, emitRewardAnimation, showRewardToast, userAPI]);
+
+  const handleQuizCompleted = useCallback(({
+    score,
+    totalQuestions,
+    source,
+  }: {
+    score: number;
+    totalQuestions: number;
+    source?: RewardAnimationRect;
+  }) => {
+    void (async () => {
+      let result: RewardMutationResult;
+      try {
+        result = await userAPI.markQuizCompleted(courseId, lessonId, score, totalQuestions);
+      } catch (error) {
+        console.warn('[LessonScreen] Failed to persist quiz reward', error);
+        return;
+      }
+
+      if (result.xpAwarded > 0) {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:quiz`,
+          type: 'xp',
+          source,
+          xpDelta: result.xpAwarded,
+        });
+        showRewardToast({
+          kind: 'xp',
+          message: `+${result.xpAwarded} XP earned`,
+        });
+      }
+
+      result.badgeIdsEarned.forEach((badgeId) => {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:badge:${badgeId}`,
+          type: 'badge',
+          badgeId,
+          source,
+        });
+        showRewardToast({
+          kind: 'badge',
+          message: `Badge unlocked: ${formatBadgeTitle(badgeId)}`,
+        });
+      });
+
+      result.certificateIdsIssued.forEach((certificateId) => {
+        emitRewardAnimation({
+          eventId: `anim:${courseId}:${lessonId}:certificate:${certificateId}`,
+          type: 'certificate',
+          source,
+        });
+        showRewardToast({
+          kind: 'certificate',
+          message: 'Certificate unlocked',
+        });
+      });
+    })();
+  }, [courseId, lessonId, emitRewardAnimation, showRewardToast, userAPI]);
+
   if (loading) {
     return (
       <View flex={1} justifyContent="center" alignItems="center" backgroundColor="white">
@@ -461,6 +614,8 @@ export default function LessonScreen() {
             key={block.id || index}
             block={block}
             courseDetail={courseDetail}
+            onFlashcardsCompleted={handleFlashcardsCompleted}
+            onQuizCompleted={handleQuizCompleted}
             onVideoPlay={handleVideoPlay}
             onVideoStateChange={handleVideoStateChange}
             inlinePlayingVideoId={inlinePlayingVideoId}
@@ -515,9 +670,15 @@ export default function LessonScreen() {
   );
 }
 
-function BlockRenderer({ block, courseDetail, onVideoPlay, onVideoStateChange, inlinePlayingVideoId, resumeInlineToken, resumeInlineVideoId, resumeInlineSeekTime }: {
+function BlockRenderer({ block, courseDetail, onFlashcardsCompleted, onQuizCompleted, onVideoPlay, onVideoStateChange, inlinePlayingVideoId, resumeInlineToken, resumeInlineVideoId, resumeInlineSeekTime }: {
   block: ContentBlock;
   courseDetail: CourseDetail | null;
+  onFlashcardsCompleted?: (payload: { source?: RewardAnimationRect }) => void;
+  onQuizCompleted?: (payload: {
+    score: number;
+    totalQuestions: number;
+    source?: RewardAnimationRect;
+  }) => void;
   onVideoPlay?: (videoId: string, yOffset: number, playerRef: React.RefObject<YoutubeIframeRef | null>) => void;
   onVideoStateChange?: (videoId: string, state: string) => void;
   inlinePlayingVideoId?: string | null;
@@ -654,11 +815,11 @@ function BlockRenderer({ block, courseDetail, onVideoPlay, onVideoStateChange, i
       if (!courseDetail?.quizzes) return null;
       const quiz = courseDetail.quizzes.find(q => q.quizId === block.quizId);
       if (!quiz) return null;
-      return <QuizBlock quiz={quiz} />;
+      return <QuizBlock quiz={quiz} onCompleted={onQuizCompleted} />;
 
     case 'flashcards':
       if (!block.cards || block.cards.length === 0) return null;
-      return <FlashcardsBlock cards={block.cards} />;
+      return <FlashcardsBlock cards={block.cards} onCompleted={onFlashcardsCompleted} />;
 
     default:
       return null;

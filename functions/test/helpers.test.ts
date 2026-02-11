@@ -15,6 +15,7 @@ import {
   isLessonHeading,
   buildCourseSummary,
   buildCourseDetail,
+  enforceInteractiveBlockConstraints,
   buildSpansFromGDocs,
   parseLessonMetadata,
   NormalizedParagraph,
@@ -407,5 +408,94 @@ describe('buildCourseDetail', () => {
     const detail = buildCourseDetail(metadata, lessons);
     expect(detail.quizzes).toHaveLength(0);
     expect(detail.lessons).toHaveLength(1);
+  });
+});
+
+// ─── enforceInteractiveBlockConstraints ─────────────────────────────────────
+
+describe('enforceInteractiveBlockConstraints', () => {
+  let warnSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  it('merges multiple flashcards blocks into one while preserving card order', () => {
+    const blocks = [
+      { id: 'b1', type: 'text', content: [{ text: 'Intro' }] },
+      {
+        id: 'b2',
+        type: 'flashcards',
+        cards: [{ front: 'A', back: 'a' }],
+      },
+      { id: 'b3', type: 'heading', level: 2, text: 'Break' },
+      {
+        id: 'b4',
+        type: 'flashcards',
+        cards: [{ front: 'B', back: 'b' }],
+      },
+    ];
+
+    const constrained = enforceInteractiveBlockConstraints(
+      'course-lesson-1',
+      'Lesson One',
+      blocks,
+    );
+    const flashcards = constrained.filter((b: any) => b.type === 'flashcards');
+
+    expect(flashcards).toHaveLength(1);
+    expect(flashcards[0].cards).toEqual([
+      { front: 'A', back: 'a' },
+      { front: 'B', back: 'b' },
+    ]);
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps one quiz block and normalizes quizId to lesson-based value', () => {
+    const blocks = [
+      { id: 'b1', type: 'text', content: [{ text: 'Intro' }] },
+      { id: 'b2', type: 'quiz', quizId: 'old-quiz-id' },
+      { id: 'b3', type: 'text', content: [{ text: 'Outro' }] },
+      { id: 'b4', type: 'quiz', quizId: 'another-quiz-id' },
+    ];
+
+    const constrained = enforceInteractiveBlockConstraints(
+      'course-lesson-2',
+      'Lesson Two',
+      blocks,
+    );
+    const quizBlocks = constrained.filter((b: any) => b.type === 'quiz');
+
+    expect(quizBlocks).toHaveLength(1);
+    expect(quizBlocks[0].quizId).toBe('quiz-course-lesson-2');
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves blocks unchanged when constraints are already satisfied', () => {
+    const blocks = [
+      { id: 'b1', type: 'heading', level: 2, text: 'Section' },
+      {
+        id: 'b2',
+        type: 'flashcards',
+        cards: [{ front: 'Only', back: 'One' }],
+      },
+      { id: 'b3', type: 'quiz', quizId: 'quiz-course-lesson-3' },
+    ];
+
+    const constrained = enforceInteractiveBlockConstraints(
+      'course-lesson-3',
+      'Lesson Three',
+      blocks,
+    );
+
+    expect(constrained).toHaveLength(3);
+    expect(constrained[1].type).toBe('flashcards');
+    expect(constrained[2].type).toBe('quiz');
+    expect(constrained[2].quizId).toBe('quiz-course-lesson-3');
+    expect(warnSpy).not.toHaveBeenCalled();
   });
 });

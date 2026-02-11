@@ -1,22 +1,86 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, TextInput, Platform } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { TouchableOpacity, TextInput, Platform, View as RNView } from 'react-native';
 import { YStack, XStack, Text, View } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
 import { Quiz, QuizQuestion } from '../../api/course/CourseAPI';
+import type { RewardAnimationRect } from '../../context/RewardAnimationContext';
 
 interface QuizBlockProps {
   quiz: Quiz;
+  onCompleted?: (payload: {
+    score: number;
+    totalQuestions: number;
+    source?: RewardAnimationRect;
+  }) => void;
 }
 
-export function QuizBlock({ quiz }: QuizBlockProps) {
+function normalizeText(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isQuestionCorrect(question: QuizQuestion, userAnswer: any): boolean {
+  if (userAnswer === undefined || userAnswer === null) return false;
+
+  if (question.type === 'short_answer') {
+    const expected = Array.isArray(question.correctAnswer)
+      ? question.correctAnswer.map((v) => normalizeText(String(v)))
+      : [normalizeText(String(question.correctAnswer))];
+    return expected.includes(normalizeText(String(userAnswer)));
+  }
+
+  return userAnswer === question.correctAnswer;
+}
+
+function computeQuizScore(quiz: Quiz, selectedAnswers: Record<string, any>) {
+  const totalQuestions = quiz.questions.length;
+  if (totalQuestions === 0) return 0;
+
+  let correctCount = 0;
+  for (const question of quiz.questions) {
+    const userAnswer = selectedAnswers[question.questionId];
+    if (isQuestionCorrect(question, userAnswer)) {
+      correctCount += 1;
+    }
+  }
+  return Math.round((correctCount / totalQuestions) * 100);
+}
+
+export function QuizBlock({ quiz, onCompleted }: QuizBlockProps) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, any>>({});
   const [showExplanation, setShowExplanation] = useState<Record<string, boolean>>({});
+  const rootRef = useRef<RNView>(null);
+  const completionNotifiedRef = useRef(false);
   const isNative = Platform.OS !== 'web';
   const blockPadding = isNative ? '$4' : '$5';
 
   const currentQuestion = quiz.questions[currentQuestionIndex];
   const totalQuestions = quiz.questions.length;
+  const isQuizCompleted = useMemo(
+    () => Object.keys(selectedAnswers).length === totalQuestions && totalQuestions > 0,
+    [selectedAnswers, totalQuestions],
+  );
+
+  useEffect(() => {
+    if (!isQuizCompleted) return;
+    if (completionNotifiedRef.current) return;
+
+    completionNotifiedRef.current = true;
+    const score = computeQuizScore(quiz, selectedAnswers);
+    requestAnimationFrame(() => {
+      rootRef.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          onCompleted?.({
+            score,
+            totalQuestions,
+            source: { x, y, width, height },
+          });
+          return;
+        }
+        onCompleted?.({ score, totalQuestions });
+      });
+    });
+  }, [isQuizCompleted, onCompleted, quiz, selectedAnswers, totalQuestions]);
 
   const handleAnswerSelect = (questionId: string, answer: any) => {
     setSelectedAnswers(prev => ({ ...prev, [questionId]: answer }));
@@ -40,7 +104,8 @@ export function QuizBlock({ quiz }: QuizBlockProps) {
   const showCurrentExplanation = showExplanation[currentQuestion.questionId];
 
   return (
-    <YStack
+    <RNView ref={rootRef} collapsable={false}>
+      <YStack
       width="100%"
       maxWidth="100%"
       backgroundColor="white"
@@ -151,7 +216,8 @@ export function QuizBlock({ quiz }: QuizBlockProps) {
           </XStack>
         </TouchableOpacity>
       </XStack>
-    </YStack>
+      </YStack>
+    </RNView>
   );
 }
 

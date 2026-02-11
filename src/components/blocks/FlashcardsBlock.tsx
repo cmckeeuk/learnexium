@@ -1,54 +1,106 @@
-import React, { useState } from 'react';
-import { TouchableOpacity, Animated, Platform } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { TouchableOpacity, Animated, Platform, View as RNView } from 'react-native';
 import { YStack, XStack, Text, View } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
+import type { RewardAnimationRect } from '../../context/RewardAnimationContext';
 
 interface FlashcardsBlockProps {
   cards: Array<{
     front: string;
     back: string;
   }>;
+  onCompleted?: (payload: { source?: RewardAnimationRect }) => void;
 }
 
-export function FlashcardsBlock({ cards }: FlashcardsBlockProps) {
+export function FlashcardsBlock({ cards, onCompleted }: FlashcardsBlockProps) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [flipAnim] = useState(new Animated.Value(0));
+  const isFlippedRef = useRef(false);
+  const flipAnimationTokenRef = useRef(0);
+  const completionCalloutRef = useRef<RNView>(null);
+  const completionNotifiedRef = useRef(false);
   const isNative = Platform.OS !== 'web';
   const blockPadding = isNative ? '$4' : '$5';
   const cardHeight = isNative ? 220 : 280;
   const cardTextSize = isNative ? 18 : 22;
   const cardTextLineHeight = isNative ? 27 : 32;
+  const flipHintBottom = 20;
+  const flipHintReservedSpace = isNative ? 56 : 64;
 
   const currentCard = cards[currentCardIndex];
   const totalCards = cards.length;
+  const isCompletedView = currentCardIndex === totalCards - 1 && isFlipped;
+
+  useEffect(() => {
+    if (!isCompletedView) return;
+    if (completionNotifiedRef.current) return;
+
+    completionNotifiedRef.current = true;
+    requestAnimationFrame(() => {
+      completionCalloutRef.current?.measureInWindow((x, y, width, height) => {
+        if (width > 0 && height > 0) {
+          onCompleted?.({ source: { x, y, width, height } });
+          return;
+        }
+        onCompleted?.({});
+      });
+    });
+  }, [isCompletedView, onCompleted]);
+
+  const resetFlipState = (onDone?: () => void) => {
+    const resetToken = flipAnimationTokenRef.current + 1;
+    flipAnimationTokenRef.current = resetToken;
+
+    flipAnim.stopAnimation(() => {
+      if (flipAnimationTokenRef.current !== resetToken) return;
+      flipAnim.setValue(0);
+      isFlippedRef.current = false;
+      setIsFlipped(false);
+      onDone?.();
+    });
+  };
 
   const handleFlip = () => {
-    const toValue = isFlipped ? 0 : 1;
-    
-    Animated.spring(flipAnim, {
-      toValue,
-      friction: 8,
-      tension: 10,
-      useNativeDriver: true,
-    }).start();
-    
-    setIsFlipped(!isFlipped);
+    const animationToken = flipAnimationTokenRef.current + 1;
+    flipAnimationTokenRef.current = animationToken;
+
+    flipAnim.stopAnimation((currentValue) => {
+      if (flipAnimationTokenRef.current !== animationToken) return;
+
+      // Use current animated value so rapid taps still flip predictably.
+      const nextIsFlipped = currentValue < 0.5;
+      const toValue = nextIsFlipped ? 1 : 0;
+      isFlippedRef.current = nextIsFlipped;
+      setIsFlipped(nextIsFlipped);
+
+      Animated.spring(flipAnim, {
+        toValue,
+        friction: 8,
+        tension: 10,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished) return;
+        if (flipAnimationTokenRef.current !== animationToken) return;
+        isFlippedRef.current = nextIsFlipped;
+        setIsFlipped(nextIsFlipped);
+      });
+    });
   };
 
   const handleNext = () => {
     if (currentCardIndex < totalCards - 1) {
-      setCurrentCardIndex(prev => prev + 1);
-      setIsFlipped(false);
-      flipAnim.setValue(0);
+      resetFlipState(() => {
+        setCurrentCardIndex(prev => prev + 1);
+      });
     }
   };
 
   const handlePrevious = () => {
     if (currentCardIndex > 0) {
-      setCurrentCardIndex(prev => prev - 1);
-      setIsFlipped(false);
-      flipAnim.setValue(0);
+      resetFlipState(() => {
+        setCurrentCardIndex(prev => prev - 1);
+      });
     }
   };
 
@@ -144,7 +196,6 @@ export function FlashcardsBlock({ cards }: FlashcardsBlockProps) {
               height="100%"
               borderRadius={16}
               padding={isNative ? '$4' : '$6'}
-              justifyContent="center"
               alignItems="center"
               borderWidth={1}
               borderColor="#E5E7EB"
@@ -153,18 +204,26 @@ export function FlashcardsBlock({ cards }: FlashcardsBlockProps) {
               shadowOpacity={0.1}
               shadowRadius={12}
             >
-              <Text
-                fontSize={cardTextSize}
-                fontWeight="700"
-                color="#111827"
-                textAlign="center"
-                lineHeight={cardTextLineHeight}
+              <View
+                flex={1}
+                width="100%"
+                justifyContent="center"
+                alignItems="center"
+                paddingBottom={flipHintReservedSpace}
               >
-                {currentCard.front}
-              </Text>
+                <Text
+                  fontSize={cardTextSize}
+                  fontWeight="700"
+                  color="#111827"
+                  textAlign="center"
+                  lineHeight={cardTextLineHeight}
+                >
+                  {currentCard.front}
+                </Text>
+              </View>
               <XStack
                 position="absolute"
-                bottom={20}
+                bottom={flipHintBottom}
                 alignItems="center"
                 gap="$2"
                 backgroundColor="#F3F4F6"
@@ -196,25 +255,32 @@ export function FlashcardsBlock({ cards }: FlashcardsBlockProps) {
               height="100%"
               borderRadius={16}
               padding={isNative ? '$4' : '$6'}
-              justifyContent="center"
               alignItems="center"
               shadowColor="#0D9488"
               shadowOffset={{ width: 0, height: 8 }}
               shadowOpacity={0.3}
               shadowRadius={16}
             >
-              <Text
-                fontSize={isNative ? 17 : 20}
-                fontWeight="600"
-                color="white"
-                textAlign="center"
-                lineHeight={isNative ? 26 : 30}
+              <View
+                flex={1}
+                width="100%"
+                justifyContent="center"
+                alignItems="center"
+                paddingBottom={flipHintReservedSpace}
               >
-                {currentCard.back}
-              </Text>
+                <Text
+                  fontSize={isNative ? 17 : 20}
+                  fontWeight="600"
+                  color="white"
+                  textAlign="center"
+                  lineHeight={isNative ? 26 : 30}
+                >
+                  {currentCard.back}
+                </Text>
+              </View>
               <XStack
                 position="absolute"
-                bottom={20}
+                bottom={flipHintBottom}
                 alignItems="center"
                 gap="$2"
                 backgroundColor="rgba(255,255,255,0.2)"
@@ -281,22 +347,24 @@ export function FlashcardsBlock({ cards }: FlashcardsBlockProps) {
       </XStack>
 
       {/* Completion indicator */}
-      {currentCardIndex === totalCards - 1 && isFlipped && (
-        <XStack
-          backgroundColor="#F0FDFA"
-          padding="$3"
-          borderRadius={10}
-          borderWidth={1}
-          borderColor="#99F6E4"
-          gap="$2.5"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <Feather name="check-circle" size={18} color="#0D9488" />
-          <Text fontSize={14} fontWeight="600" color="#134E4A">
-            You've reviewed all {totalCards} cards!
-          </Text>
-        </XStack>
+      {isCompletedView && (
+        <RNView ref={completionCalloutRef} collapsable={false}>
+          <XStack
+            backgroundColor="#F0FDFA"
+            padding="$3"
+            borderRadius={10}
+            borderWidth={1}
+            borderColor="#99F6E4"
+            gap="$2.5"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Feather name="check-circle" size={18} color="#0D9488" />
+            <Text fontSize={14} fontWeight="600" color="#134E4A">
+              You've reviewed all {totalCards} cards!
+            </Text>
+          </XStack>
+        </RNView>
       )}
     </YStack>
   );

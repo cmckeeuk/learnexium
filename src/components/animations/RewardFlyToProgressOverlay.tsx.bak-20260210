@@ -1,0 +1,539 @@
+import React from 'react';
+import { Animated, Image, StyleSheet, Text, View } from 'react-native';
+import type {
+  RewardAnimationRect,
+  RewardAnimationTokenVariant,
+  RewardAnimationType,
+} from '../../context/RewardAnimationContext';
+
+export interface ActiveRewardAnimation {
+  key: string;
+  type: RewardAnimationType;
+  source: RewardAnimationRect;
+  target: RewardAnimationRect;
+  progress: Animated.Value;
+  xpDelta?: number;
+  tokenVariant: RewardAnimationTokenVariant;
+  reducedMotion: boolean;
+}
+
+export interface RewardImpactPulse {
+  key: string;
+  type: RewardAnimationType;
+  target: RewardAnimationRect;
+  progress: Animated.Value;
+}
+
+function getTokenTheme(type: RewardAnimationType) {
+  if (type === 'badge') {
+    return { background: '#1D4ED8', border: '#93C5FD', glow: '#60A5FA', text: '#ffffff', label: 'BDG' };
+  }
+  if (type === 'certificate') {
+    return { background: '#7C3AED', border: '#C4B5FD', glow: '#A78BFA', text: '#ffffff', label: 'CERT' };
+  }
+  return { background: '#0D9488', border: '#5EEAD4', glow: '#2DD4BF', text: '#ffffff', label: 'XP' };
+}
+
+function getCenter(rect: RewardAnimationRect) {
+  return {
+    x: rect.x + rect.width / 2,
+    y: rect.y + rect.height / 2,
+  };
+}
+
+const FLASHCARD_TOKEN_IMAGE = require('../../../assets/rewards/icons/xp-token.png');
+const USE_SHARED_TOKEN_FOR_ALL_REWARDS = true;
+
+export function RewardFlyToProgressOverlay({
+  activeAnimation,
+  pulseAnimation,
+}: {
+  activeAnimation: ActiveRewardAnimation | null;
+  pulseAnimation: RewardImpactPulse | null;
+}) {
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {activeAnimation ? <FlyingToken animation={activeAnimation} /> : null}
+      {pulseAnimation ? <ImpactPulse animation={pulseAnimation} /> : null}
+    </View>
+  );
+}
+
+function buildFlightPath(
+  progress: Animated.Value | Animated.AnimatedInterpolation<number>,
+  source: { x: number; y: number },
+  target: { x: number; y: number },
+  arcHeight: number,
+  reducedMotion: boolean,
+) {
+  const translateX = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [source.x, target.x],
+  });
+
+  const linearTranslateY = progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [source.y, target.y],
+  });
+
+  const arcTranslateY = progress.interpolate({
+    inputRange: [0, 0.55, 1],
+    outputRange: [0, -arcHeight, 0],
+  });
+
+  const translateY = reducedMotion
+    ? linearTranslateY
+    : Animated.add(linearTranslateY, arcTranslateY);
+
+  return { translateX, translateY };
+}
+
+function FlyingToken({ animation }: { animation: ActiveRewardAnimation }) {
+  const source = getCenter(animation.source);
+  const target = getCenter(animation.target);
+  const verticalDistance = Math.abs(target.y - source.y);
+  const arcHeight = Math.max(100, Math.min(210, verticalDistance * 0.45));
+  const theme = getTokenTheme(animation.type);
+  const isImageToken =
+    USE_SHARED_TOKEN_FOR_ALL_REWARDS ||
+    animation.tokenVariant === 'flashcards-image';
+  const trailProgressNear = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.84],
+    extrapolate: 'clamp',
+  });
+  const trailProgressFar = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 0.68],
+    extrapolate: 'clamp',
+  });
+
+  const mainMotion = buildFlightPath(
+    animation.progress,
+    source,
+    target,
+    arcHeight,
+    animation.reducedMotion,
+  );
+  const nearMotion = buildFlightPath(
+    trailProgressNear,
+    source,
+    target,
+    arcHeight,
+    animation.reducedMotion,
+  );
+  const farMotion = buildFlightPath(
+    trailProgressFar,
+    source,
+    target,
+    arcHeight,
+    animation.reducedMotion,
+  );
+
+  const flightProgress = animation.progress.interpolate({
+    inputRange: [0, 0.6, 1],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+  const imageFlightX = flightProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [source.x, target.x],
+  });
+  const imageFlightLinearY = flightProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [source.y, target.y],
+  });
+  const imageLaunchJump = animation.progress.interpolate({
+    inputRange: [0, 0.14, 0.3, 1],
+    outputRange: [0, -82, -40, -40],
+    extrapolate: 'clamp',
+  });
+  const imageFlightArc = flightProgress.interpolate({
+    inputRange: [0, 0.42, 1],
+    outputRange: [0, -140, 0],
+    extrapolate: 'clamp',
+  });
+  const imageDiveBias = flightProgress.interpolate({
+    inputRange: [0, 0.72, 1],
+    outputRange: [0, 0, 32],
+    extrapolate: 'clamp',
+  });
+  const imageMotion = {
+    translateX: imageFlightX,
+    translateY: Animated.add(
+      Animated.add(imageFlightLinearY, imageLaunchJump),
+      Animated.add(imageFlightArc, imageDiveBias),
+    ),
+  };
+
+  const defaultScale = animation.progress.interpolate({
+    inputRange: [0, 0.14, 0.7, 0.9, 1],
+    outputRange: [0.2, 1.12, 1.02, 0.92, 0.55],
+  });
+  const imageScale = animation.progress.interpolate({
+    inputRange: [0, 0.1, 0.22, 0.36, 0.72, 1],
+    outputRange: [0.2, 1.06, 1.5, 1.2, 1.02, 0.72],
+    extrapolate: 'clamp',
+  });
+  const scale = isImageToken && !animation.reducedMotion ? imageScale : defaultScale;
+
+  const opacity = animation.progress.interpolate({
+    inputRange: [0, 0.08, 0.92, 1],
+    outputRange: [0, 1, 1, 0],
+  });
+
+  const nearTrailOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.2, 0.9, 1],
+    outputRange: [0, 0.35, 0.2, 0],
+  });
+
+  const farTrailOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.25, 0.85, 1],
+    outputRange: [0, 0.25, 0.12, 0],
+  });
+  const tokenMotion =
+    isImageToken && !animation.reducedMotion ? imageMotion : mainMotion;
+  const tokenBadgeText =
+    animation.type === 'xp' && animation.xpDelta
+      ? `+${animation.xpDelta}`
+      : theme.label;
+
+  return (
+    <>
+      <Animated.View
+        style={[
+          styles.trailDotFar,
+          {
+            backgroundColor: theme.glow,
+            opacity: farTrailOpacity,
+            transform: [
+              { translateX: farMotion.translateX },
+              { translateY: farMotion.translateY },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.trailDotNear,
+          {
+            backgroundColor: theme.glow,
+            opacity: nearTrailOpacity,
+            transform: [
+              { translateX: nearMotion.translateX },
+              { translateY: nearMotion.translateY },
+            ],
+          },
+        ]}
+      />
+      {!isImageToken ? (
+        <Animated.View
+          style={[
+            styles.tokenGlow,
+            {
+              backgroundColor: theme.glow,
+              opacity: nearTrailOpacity,
+              transform: [
+                { translateX: mainMotion.translateX },
+                { translateY: mainMotion.translateY },
+                { scale },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+      <Animated.View
+        style={[
+          isImageToken ? styles.imageTokenContainer : styles.tokenContainer,
+          {
+            transform: [
+              { translateX: tokenMotion.translateX },
+              { translateY: tokenMotion.translateY },
+              { scale },
+            ],
+            opacity,
+            backgroundColor: isImageToken ? 'transparent' : theme.background,
+            borderColor: isImageToken ? 'transparent' : theme.border,
+          },
+        ]}
+      >
+        {isImageToken ? (
+          <>
+            <Image
+              source={FLASHCARD_TOKEN_IMAGE}
+              style={styles.tokenImage}
+              resizeMode="contain"
+            />
+            <View style={styles.tokenXpBadge}>
+              <Text style={styles.tokenXpBadgeText}>{tokenBadgeText}</Text>
+            </View>
+          </>
+        ) : (
+          <Text style={[styles.tokenLabel, { color: theme.text }]}>
+            {animation.type === 'xp' && animation.xpDelta ? `+${animation.xpDelta}` : theme.label}
+          </Text>
+        )}
+      </Animated.View>
+    </>
+  );
+}
+
+function ImpactPulse({ animation }: { animation: RewardImpactPulse }) {
+  const center = getCenter(animation.target);
+  const theme = getTokenTheme(animation.type);
+
+  const ringScalePrimary = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.45, 2.25],
+  });
+
+  const ringOpacityPrimary = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.48, 0],
+  });
+
+  const ringScaleSecondary = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.25, 1.55],
+  });
+
+  const ringOpacitySecondary = animation.progress.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, 0.35, 0],
+  });
+
+  const flashScale = animation.progress.interpolate({
+    inputRange: [0, 0.35, 1],
+    outputRange: [0.35, 1.1, 0.75],
+  });
+
+  const flashOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.55, 1],
+    outputRange: [0.55, 0.2, 0],
+  });
+
+  const sparkleSpread = animation.progress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [2, 19],
+  });
+
+  const sparkleOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.75, 1],
+    outputRange: [0.7, 0.25, 0],
+  });
+
+  return (
+    <>
+      <Animated.View
+        style={[
+          styles.pulse,
+          {
+            borderColor: theme.background,
+            opacity: ringOpacityPrimary,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { scale: ringScalePrimary },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.pulse,
+          {
+            borderColor: theme.glow,
+            opacity: ringOpacitySecondary,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { scale: ringScaleSecondary },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.impactCore,
+          {
+            backgroundColor: theme.glow,
+            opacity: flashOpacity,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { scale: flashScale },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.sparkle,
+          {
+            backgroundColor: theme.glow,
+            opacity: sparkleOpacity,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { translateX: sparkleSpread },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.sparkle,
+          {
+            backgroundColor: theme.glow,
+            opacity: sparkleOpacity,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { translateX: Animated.multiply(sparkleSpread, -1) },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.sparkle,
+          {
+            backgroundColor: theme.glow,
+            opacity: sparkleOpacity,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { translateY: sparkleSpread },
+            ],
+          },
+        ]}
+      />
+      <Animated.View
+        style={[
+          styles.sparkle,
+          {
+            backgroundColor: theme.glow,
+            opacity: sparkleOpacity,
+            transform: [
+              { translateX: center.x },
+              { translateY: center.y },
+              { translateY: Animated.multiply(sparkleSpread, -1) },
+            ],
+          },
+        ]}
+      />
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  trailDotFar: {
+    position: 'absolute',
+    left: -7,
+    top: -7,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  trailDotNear: {
+    position: 'absolute',
+    left: -10,
+    top: -10,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  tokenGlow: {
+    position: 'absolute',
+    left: -26,
+    top: -26,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  tokenContainer: {
+    position: 'absolute',
+    left: -24,
+    top: -24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 2.4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.28,
+    shadowRadius: 7,
+    elevation: 7,
+  },
+  imageTokenContainer: {
+    position: 'absolute',
+    left: -48,
+    top: -48,
+    width: 96,
+    height: 96,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tokenLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  tokenImage: {
+    width: 96,
+    height: 96,
+  },
+  tokenXpBadge: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -20,
+    marginTop: -22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15,23,42,0.78)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.28)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+  tokenXpBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.1,
+  },
+  pulse: {
+    position: 'absolute',
+    left: -23,
+    top: -23,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    borderWidth: 2,
+  },
+  impactCore: {
+    position: 'absolute',
+    left: -12,
+    top: -12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  sparkle: {
+    position: 'absolute',
+    left: -3,
+    top: -3,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+});
