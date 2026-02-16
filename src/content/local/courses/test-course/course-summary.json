@@ -1,0 +1,23 @@
+{
+  "courseId": "test-course",
+  "title": "All Features Test Course",
+  "subtitle": "Small local dataset for UI and behavior testing",
+  "description": "This course is intentionally short and includes every lesson block type, premium locking, and quiz/flashcard progression in a single local package.",
+  "author": {
+    "name": "Local Content Team",
+    "organization": "Learning App",
+    "bio": "Maintains local-first test fixtures for app validation.",
+    "avatarUrl": "local://courses/test-course/author"
+  },
+  "thumbnailUrl": "local://courses/test-course/thumbnail",
+  "releaseDate": "2026-02-16T00:00:00Z",
+  "lastUpdated": "2026-02-16T00:00:00Z",
+  "language": "en",
+  "difficulty": "beginner",
+  "estimatedDurationMinutes": 24,
+  "tags": ["test", "local", "fixtures"],
+  "premium": true,
+  "freePreviewLessons": ["lesson-1", "lesson-2"],
+  "lessonCount": 3,
+  "order": 1
+}

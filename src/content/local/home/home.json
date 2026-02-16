@@ -1,0 +1,7 @@
+{
+  "title": "Studio Test Hub",
+  "text": "A compact local test setup that exercises every lesson block and progression path in one editable course.",
+  "backgroundImage": "local://home/hero",
+  "bulkPricingUrl": "https://example.com/bulk-pricing",
+  "bulkPricingMessage": "Need this for a full team? Ask about bulk access."
+}

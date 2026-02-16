@@ -95,7 +95,9 @@ export default function CourseDetailScreen() {
       );
     }
     if (summary?.author?.avatarUrl) {
-      imageUris.push(summary.author.avatarUrl);
+      if (typeof summary.author.avatarUrl === 'string') {
+        imageUris.push(summary.author.avatarUrl);
+      }
     }
     if (detail) {
       detail.lessons.forEach((lesson) => {
@@ -256,7 +258,11 @@ export default function CourseDetailScreen() {
             <XStack alignItems="center" gap="$3">
               {summary.author.avatarUrl ? (
                 <Image
-                  source={{ uri: summary.author.avatarUrl }}
+                  source={
+                    typeof summary.author.avatarUrl === 'string'
+                      ? { uri: summary.author.avatarUrl }
+                      : summary.author.avatarUrl
+                  }
                   style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#E5E7EB' }}
                 />
               ) : (

@@ -1,0 +1,183 @@
+{
+  "courseId": "test-course",
+  "lessons": [
+    {
+      "lessonId": "lesson-1",
+      "title": "Core Lesson Blocks",
+      "summary": "Covers heading, text, list, callout, image, and video blocks.",
+      "order": 1,
+      "estimatedDurationMinutes": 8,
+      "premium": false,
+      "learningObjectives": [
+        "Render all standard content blocks",
+        "Verify local image loading",
+        "Verify embedded video rendering"
+      ],
+      "blocks": [
+        {
+          "id": "l1-b1",
+          "type": "heading",
+          "level": 2,
+          "text": "Welcome to the local test course"
+        },
+        {
+          "id": "l1-b2",
+          "type": "text",
+          "content": [
+            { "text": "This lesson validates common block rendering with " },
+            { "text": "local JSON", "bold": true },
+            { "text": " and " },
+            { "text": "local images", "italic": true },
+            { "text": "." }
+          ]
+        },
+        {
+          "id": "l1-b3",
+          "type": "list",
+          "style": "bullet",
+          "items": [
+            "List rendering",
+            "Callout styling",
+            "Image aspect handling",
+            "Video handoff behavior"
+          ]
+        },
+        {
+          "id": "l1-b4",
+          "type": "callout",
+          "variant": "tip",
+          "text": "Tip: Keep this fixture small so regressions are easy to isolate."
+        },
+        {
+          "id": "l1-b5",
+          "type": "image",
+          "src": "local://courses/test-course/lesson-1-image",
+          "caption": "Local image fixture from assets/content/courses/test-course/lesson-1-image.jpg",
+          "zoomable": true
+        },
+        {
+          "id": "l1-b6",
+          "type": "video",
+          "provider": "youtube",
+          "videoId": "dQw4w9WgXcQ",
+          "title": "Sample embedded video"
+        }
+      ]
+    },
+    {
+      "lessonId": "lesson-2",
+      "title": "Interactive Blocks",
+      "summary": "Contains flashcards and a mixed quiz.",
+      "order": 2,
+      "estimatedDurationMinutes": 10,
+      "premium": false,
+      "learningObjectives": [
+        "Verify flashcard completion",
+        "Verify mixed quiz question types",
+        "Verify reward progression hooks"
+      ],
+      "blocks": [
+        {
+          "id": "l2-b1",
+          "type": "heading",
+          "level": 2,
+          "text": "Flashcards and quiz"
+        },
+        {
+          "id": "l2-b2",
+          "type": "text",
+          "content": [
+            { "text": "Complete the deck and quiz to validate XP, badges, and completion flows." }
+          ]
+        },
+        {
+          "id": "l2-b3",
+          "type": "flashcards",
+          "cards": [
+            {
+              "front": "What is the purpose of this course?",
+              "back": "To test all content and progression features with local editable fixtures."
+            },
+            {
+              "front": "Where are content images stored?",
+              "back": "Inside assets/content so they are versioned with the project."
+            },
+            {
+              "front": "What mode makes this data active?",
+              "back": "Set EXPO_PUBLIC_CONTENT_SOURCE=local."
+            }
+          ]
+        },
+        {
+          "id": "l2-b4",
+          "type": "quiz",
+          "quizId": "quiz-lesson-2"
+        }
+      ]
+    },
+    {
+      "lessonId": "lesson-3",
+      "title": "Premium Gate Check",
+      "summary": "Simple premium lesson for lock and upgrade behavior.",
+      "order": 3,
+      "estimatedDurationMinutes": 6,
+      "premium": true,
+      "learningObjectives": [
+        "Trigger locked lesson UI",
+        "Verify upgrade action grants access"
+      ],
+      "blocks": [
+        {
+          "id": "l3-b1",
+          "type": "heading",
+          "level": 2,
+          "text": "Premium content"
+        },
+        {
+          "id": "l3-b2",
+          "type": "text",
+          "content": [
+            { "text": "If you can read this, premium access is active for the current user profile." }
+          ]
+        },
+        {
+          "id": "l3-b3",
+          "type": "callout",
+          "variant": "success",
+          "text": "Premium unlock flow verified."
+        }
+      ]
+    }
+  ],
+  "quizzes": [
+    {
+      "quizId": "quiz-lesson-2",
+      "lessonId": "lesson-2",
+      "title": "Interactive Checkpoint",
+      "questions": [
+        {
+          "questionId": "q-1",
+          "type": "mcq",
+          "prompt": "Which block type drives swipe-style review in this app?",
+          "choices": ["flashcards", "callout", "image", "video"],
+          "correctAnswer": "flashcards",
+          "explanation": "Flashcards are the dedicated spaced-review block in lessons."
+        },
+        {
+          "questionId": "q-2",
+          "type": "true_false",
+          "prompt": "True or false: lesson 3 is configured as premium in this fixture.",
+          "correctAnswer": true,
+          "explanation": "Lesson 3 uses premium=true specifically to test lock behavior."
+        },
+        {
+          "questionId": "q-3",
+          "type": "short_answer",
+          "prompt": "Type the content source value that enables local fixtures.",
+          "correctAnswer": ["local"],
+          "explanation": "Set EXPO_PUBLIC_CONTENT_SOURCE to local."
+        }
+      ]
+    }
+  ]
+}

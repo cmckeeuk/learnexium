@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { ScrollView, ActivityIndicator, Image, Alert, NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent, Dimensions, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { ScrollView, ActivityIndicator, Image, Alert, NativeSyntheticEvent, NativeScrollEvent, LayoutChangeEvent, Dimensions, TouchableOpacity, StyleSheet, Platform, ImageSourcePropType } from 'react-native';
 import { YStack, Text, View, XStack } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
 import YoutubePlayer, { YoutubeIframeRef } from 'react-native-youtube-iframe';
@@ -773,17 +773,17 @@ function BlockRenderer({ block, courseDetail, onFlashcardsCompleted, onQuizCompl
       );
     
     case 'image':
-      // Images are HTTPS URLs from Firebase Storage
       const imageBlock = block as any;
-      const imageUri = buildVersionedImageUri(
-        imageBlock.src,
-        imageBlock.version,
-        imageBlock.hash,
-      );
-      const imageSource = imageUri.startsWith('http')
-        ? { uri: imageUri }
-        : { uri: imageUri }; // All images should be HTTP URLs now
-      
+      const imageSource = typeof imageBlock.src === 'string'
+        ? {
+            uri: buildVersionedImageUri(
+              imageBlock.src,
+              imageBlock.version,
+              imageBlock.hash,
+            ),
+          }
+        : imageBlock.src;
+
       return (
         <LessonImage source={imageSource} caption={imageBlock.caption} />
       );
@@ -827,19 +827,28 @@ function BlockRenderer({ block, courseDetail, onFlashcardsCompleted, onQuizCompl
 }
 
 /** Renders a lesson image at its natural aspect ratio (no cropping). */
-function LessonImage({ source, caption }: { source: { uri: string }; caption?: string }) {
-  const screenWidth = Dimensions.get('window').width - 32; // account for padding
+function LessonImage({ source, caption }: { source: ImageSourcePropType; caption?: string }) {
   const [aspectRatio, setAspectRatio] = useState(16 / 9); // fallback
 
   useEffect(() => {
-    if (source.uri) {
+    if (typeof source === 'number') {
+      const resolved = Image.resolveAssetSource(source);
+      if (resolved?.width && resolved?.height) {
+        setAspectRatio(resolved.width / resolved.height);
+      }
+      return;
+    }
+
+    if (source && typeof source === 'object' && 'uri' in source) {
+      const uri = source.uri;
+      if (typeof uri !== 'string' || uri.length === 0) return;
       Image.getSize(
-        source.uri,
+        uri,
         (w, h) => { if (w && h) setAspectRatio(w / h); },
         () => {},  // keep fallback on error
       );
     }
-  }, [source.uri]);
+  }, [source]);
 
   return (
     <View marginVertical="$2" width="100%">

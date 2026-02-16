@@ -7,7 +7,7 @@ export interface CourseSummary {
     name: string;
     organization: string;
     bio: string;
-    avatarUrl: string;
+    avatarUrl: string | number;
   };
   thumbnailUrl: string | number;
   thumbnailVersion?: number | string;
@@ -53,7 +53,7 @@ export interface TextBlock extends BaseBlock {
 
 export interface ImageBlock extends BaseBlock {
   type: 'image';
-  src: string;
+  src: string | number;
   version?: number | string;
   hash?: string;
   caption?: string;
