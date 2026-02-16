@@ -15,49 +15,51 @@ import {
   View,
 } from 'react-native';
 import {
-  RewardFlyToProgressOverlay,
-  ActiveRewardAnimation,
-} from '../components/animations/RewardFlyToProgressOverlay';
+  RewardCelebrateOverlay,
+  ActiveRewardCelebrateAnimation,
+} from '../components/animations/RewardCelebrateOverlay';
 
-export type RewardAnimationType = 'xp' | 'badge' | 'certificate';
-export type RewardAnimationTarget = 'progressTab' | 'progressHeader';
-export type RewardAnimationTokenVariant = 'default' | 'flashcards-image';
+export type RewardCelebrateType = 'xp' | 'badge' | 'certificate';
+export type RewardCelebrateTarget = 'progressTab' | 'progressHeader';
+export type RewardCelebrateTokenVariant = 'default' | 'flashcards-image';
 
-export interface RewardAnimationRect {
+export interface RewardCelebrateRect {
   x: number;
   y: number;
   width: number;
   height: number;
 }
 
-export interface RewardAnimationRequest {
+export interface RewardCelebrateRequest {
   eventId: string;
-  type: RewardAnimationType;
-  source?: RewardAnimationRect;
+  type: RewardCelebrateType;
+  source?: RewardCelebrateRect;
   xpDelta?: number;
   badgeId?: string;
-  tokenVariant?: RewardAnimationTokenVariant;
+  tokenVariant?: RewardCelebrateTokenVariant;
 }
 
-interface RewardAnimationContextValue {
-  emitRewardAnimation: (request: RewardAnimationRequest) => void;
+interface RewardCelebrateContextValue {
+  emitRewardAnimation: (request: RewardCelebrateRequest) => void;
   registerAnimationTarget: (
-    target: RewardAnimationTarget,
-    rect: RewardAnimationRect | null,
+    target: RewardCelebrateTarget,
+    rect: RewardCelebrateRect | null,
   ) => void;
   setProgressTabActive: (active: boolean) => void;
+  clearAnimationDedupe: () => void;
 }
 
-interface QueuedRewardAnimation extends RewardAnimationRequest {
+interface QueuedRewardCelebrateAnimation extends RewardCelebrateRequest {
   enqueuedAt: number;
 }
 
 const MAX_QUEUE_LENGTH = 8;
 const QUEUE_STAGGER_MS = 140;
-const REDUCED_MOTION_DURATION_MS = 280;
-const STANDARD_DURATION_MS = 800;
+const REDUCED_MOTION_DURATION_MS = 2200;
+const STANDARD_DURATION_MS = 4000;
+const EVENT_DEDUPE_WINDOW_MS = 8000;
 
-const RewardAnimationContext = createContext<RewardAnimationContextValue | null>(null);
+const RewardCelebrateContext = createContext<RewardCelebrateContextValue | null>(null);
 
 function logAnimationEvent(name: string, payload: Record<string, unknown>) {
   if (__DEV__) {
@@ -65,7 +67,7 @@ function logAnimationEvent(name: string, payload: Record<string, unknown>) {
   }
 }
 
-function buildFallbackTarget(): RewardAnimationRect {
+function buildFallbackTarget(): RewardCelebrateRect {
   const { width, height } = Dimensions.get('window');
   return {
     x: width - 46,
@@ -75,7 +77,7 @@ function buildFallbackTarget(): RewardAnimationRect {
   };
 }
 
-function buildFallbackSource(): RewardAnimationRect {
+function buildFallbackSource(): RewardCelebrateRect {
   const { width, height } = Dimensions.get('window');
   return {
     x: width / 2 - 12,
@@ -85,16 +87,16 @@ function buildFallbackSource(): RewardAnimationRect {
   };
 }
 
-export function RewardAnimationProvider({ children }: { children: React.ReactNode }) {
-  const targetsRef = useRef<Record<RewardAnimationTarget, RewardAnimationRect | null>>({
+export function RewardCelebrateProvider({ children }: { children: React.ReactNode }) {
+  const targetsRef = useRef<Record<RewardCelebrateTarget, RewardCelebrateRect | null>>({
     progressTab: null,
     progressHeader: null,
   });
-  const emittedEventIdsRef = useRef<Set<string>>(new Set());
-  const queueRef = useRef<QueuedRewardAnimation[]>([]);
+  const emittedEventIdsRef = useRef<Map<string, number>>(new Map());
+  const queueRef = useRef<QueuedRewardCelebrateAnimation[]>([]);
   const processingRef = useRef(false);
   const [queueTick, setQueueTick] = useState(0);
-  const [activeAnimation, setActiveAnimation] = useState<ActiveRewardAnimation | null>(null);
+  const [activeAnimation, setActiveAnimation] = useState<ActiveRewardCelebrateAnimation | null>(null);
   const [progressTabActive, setProgressTabActive] = useState(false);
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
 
@@ -118,14 +120,14 @@ export function RewardAnimationProvider({ children }: { children: React.ReactNod
   }, []);
 
   const registerAnimationTarget = useCallback((
-    target: RewardAnimationTarget,
-    rect: RewardAnimationRect | null,
+    target: RewardCelebrateTarget,
+    rect: RewardCelebrateRect | null,
   ) => {
     targetsRef.current[target] = rect;
   }, []);
 
   const chooseTarget = useCallback((): {
-    target: RewardAnimationRect;
+    target: RewardCelebrateRect;
     usedFallback: boolean;
   } => {
     const headerTarget = targetsRef.current.progressHeader;
@@ -203,15 +205,28 @@ export function RewardAnimationProvider({ children }: { children: React.ReactNod
     processQueue();
   }, [queueTick, processQueue]);
 
-  const emitRewardAnimation = useCallback((request: RewardAnimationRequest) => {
+  const clearAnimationDedupe = useCallback(() => {
+    emittedEventIdsRef.current.clear();
+  }, []);
+
+  const emitRewardAnimation = useCallback((request: RewardCelebrateRequest) => {
     if (!request.eventId) return;
-    if (emittedEventIdsRef.current.has(request.eventId)) return;
 
-    emittedEventIdsRef.current.add(request.eventId);
+    const now = Date.now();
+    for (const [eventId, seenAt] of emittedEventIdsRef.current.entries()) {
+      if (now - seenAt > EVENT_DEDUPE_WINDOW_MS) {
+        emittedEventIdsRef.current.delete(eventId);
+      }
+    }
 
-    const queuedItem: QueuedRewardAnimation = {
+    const lastSeenAt = emittedEventIdsRef.current.get(request.eventId);
+    if (lastSeenAt && now - lastSeenAt < EVENT_DEDUPE_WINDOW_MS) return;
+
+    emittedEventIdsRef.current.set(request.eventId, now);
+
+    const queuedItem: QueuedRewardCelebrateAnimation = {
       ...request,
-      enqueuedAt: Date.now(),
+      enqueuedAt: now,
     };
 
     if (queueRef.current.length >= MAX_QUEUE_LENGTH) {
@@ -221,29 +236,30 @@ export function RewardAnimationProvider({ children }: { children: React.ReactNod
     setQueueTick((v) => v + 1);
   }, []);
 
-  const value = useMemo<RewardAnimationContextValue>(() => ({
+  const value = useMemo<RewardCelebrateContextValue>(() => ({
     emitRewardAnimation,
     registerAnimationTarget,
     setProgressTabActive,
-  }), [emitRewardAnimation, registerAnimationTarget]);
+    clearAnimationDedupe,
+  }), [emitRewardAnimation, registerAnimationTarget, clearAnimationDedupe]);
 
   return (
-    <RewardAnimationContext.Provider value={value}>
+    <RewardCelebrateContext.Provider value={value}>
       <View style={{ flex: 1 }}>
         {children}
-        <RewardFlyToProgressOverlay
+        <RewardCelebrateOverlay
           activeAnimation={activeAnimation}
           pulseAnimation={null}
         />
       </View>
-    </RewardAnimationContext.Provider>
+    </RewardCelebrateContext.Provider>
   );
 }
 
-export function useRewardAnimation() {
-  const context = useContext(RewardAnimationContext);
+export function useRewardCelebrate() {
+  const context = useContext(RewardCelebrateContext);
   if (!context) {
-    throw new Error('useRewardAnimation must be used inside RewardAnimationProvider');
+    throw new Error('useRewardCelebrate must be used inside RewardCelebrateProvider');
   }
   return context;
 }

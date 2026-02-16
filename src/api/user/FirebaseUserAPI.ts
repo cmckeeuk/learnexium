@@ -217,31 +217,39 @@ export class FirebaseUserAPI implements UserAPI {
     if (!user || !db) return;
 
     try {
-      const snapshot = await this.withRemoteTimeout(
-        getDocs(collection(db, 'users', user.uid, 'progress')),
-        'clearAllProgress:getDocs',
-        null,
-      );
-      if (!snapshot) return;
-      if (snapshot.empty) return;
+      const [progressSnapshot, rewardSnapshot] = await Promise.all([
+        this.withRemoteTimeout(
+          getDocs(collection(db, 'users', user.uid, 'progress')),
+          'clearAllProgress:getDocs',
+          null,
+        ),
+        this.withRemoteTimeout(
+          getDocs(collection(db, 'users', user.uid, REWARDS_COLLECTION)),
+          'clearAllProgress:getRewardsDocs',
+          null,
+        ),
+      ]);
 
       const batch = writeBatch(db);
-      snapshot.docs.forEach((snap) => {
-        batch.delete(doc(db, 'users', user.uid, 'progress', snap.id));
-      });
+      let deleteCount = 0;
 
-      const rewardSnapshot = await this.withRemoteTimeout(
-        getDocs(collection(db, 'users', user.uid, REWARDS_COLLECTION)),
-        'clearAllProgress:getRewardsDocs',
-        null,
-      );
-      if (rewardSnapshot) {
-        rewardSnapshot.docs.forEach((snap) => {
-          batch.delete(doc(db, 'users', user.uid, REWARDS_COLLECTION, snap.id));
+      if (progressSnapshot) {
+        progressSnapshot.docs.forEach((snap) => {
+          batch.delete(doc(db, 'users', user.uid, 'progress', snap.id));
+          deleteCount += 1;
         });
       }
 
-      await this.withRemoteTimeout(batch.commit(), 'clearAllProgress:commit', undefined);
+      if (rewardSnapshot) {
+        rewardSnapshot.docs.forEach((snap) => {
+          batch.delete(doc(db, 'users', user.uid, REWARDS_COLLECTION, snap.id));
+          deleteCount += 1;
+        });
+      }
+
+      if (deleteCount > 0) {
+        await this.withRemoteTimeout(batch.commit(), 'clearAllProgress:commit', undefined);
+      }
     } catch (error) {
       this.handleRemoteError('clearAllProgress', error);
     }

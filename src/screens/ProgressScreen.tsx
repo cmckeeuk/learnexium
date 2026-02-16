@@ -100,7 +100,7 @@ export default function ProgressScreen() {
   const level = summary?.level ?? 1;
   const nextLevelGap = Math.max(0, (summary?.nextLevelXp ?? 200) - totalXp);
   const xpLabel = `${totalXp} XP`;
-  const xpFontSize = xpLabel.length >= 8 ? 18 : xpLabel.length >= 6 ? 20 : 29;
+  const xpFontSize = xpLabel.length >= 8 ? 18 : xpLabel.length >= 6 ? 21 : 24;
   const hasRenderableData =
     summary !== null || badges.length > 0 || certificates.length > 0;
 
@@ -124,8 +124,13 @@ export default function ProgressScreen() {
               style={styles.heroImage}
               resizeMode="contain"
             />
-            <View style={styles.heroXpChip}>
-              <Text style={[styles.heroXpChipText, { fontSize: xpFontSize }]}>
+            <View style={styles.heroXpOverlayArea}>
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.75}
+                style={[styles.heroXpOverlayText, { fontSize: xpFontSize }]}
+              >
                 {xpLabel}
               </Text>
             </View>
@@ -318,35 +323,36 @@ function ErrorInlineBanner({ message, onRetry }: { message: string; onRetry: () 
 
 const styles = StyleSheet.create({
   heroImageWrap: {
-    marginTop: -100,
-    marginBottom: -70,
+    marginTop: -66,
+    marginBottom: -40,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   heroImage: {
-    width: 320,
-    height: 370,
+    width: 246,
+    height: 292,
+    transform: [{ scaleX: 0.9 }],
   },
-  heroXpChip: {
+  heroXpOverlayArea: {
     position: 'absolute',
-    alignSelf: 'center',
+    left: '50%',
     top: '50%',
-    marginTop: -80,
-    marginLeft: -3,
-    width: 110,
-    height: 110,
-    borderRadius: 62,
-    backgroundColor: 'rgba(9, 28, 59, 0.78)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
+    width: 130,
+    height: 112,
+    marginLeft: -65,
+    marginTop: -56,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
+    transform: [{ translateX: -14 }, { translateY: -4 }],
   },
-  heroXpChipText: {
-    color: '#FFFFFF',
-    fontSize: 29,
+  heroXpOverlayText: {
+    width: '100%',
+    color: '#0F172A',
+    fontSize: 24,
+    lineHeight: 26,
+    textAlign: 'center',
+    letterSpacing: 0.2,
     fontFamily: NATIVE_TITLE_FONT,
     includeFontPadding: false,
   },
@@ -364,7 +370,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     textAlign: 'center',
-    fontSize: 24,
+    fontSize: 18,
     color: '#111827',
     fontFamily: NATIVE_TITLE_FONT,
     lineHeight: 28,

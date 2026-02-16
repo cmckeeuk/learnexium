@@ -3,14 +3,14 @@ import { TouchableOpacity, TextInput, Platform, View as RNView } from 'react-nat
 import { YStack, XStack, Text, View } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
 import { Quiz, QuizQuestion } from '../../api/course/CourseAPI';
-import type { RewardAnimationRect } from '../../context/RewardAnimationContext';
+import type { RewardCelebrateRect } from '../../context/RewardCelebrateContext';
 
 interface QuizBlockProps {
   quiz: Quiz;
   onCompleted?: (payload: {
     score: number;
     totalQuestions: number;
-    source?: RewardAnimationRect;
+    source?: RewardCelebrateRect;
   }) => void;
 }
 

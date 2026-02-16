@@ -12,10 +12,9 @@ import { FlashcardsBlock } from '../components/blocks/FlashcardsBlock';
 import LockedLessonScreen from '../components/LockedLessonScreen';
 import { buildVersionedImageUri, prefetchImages } from '../utils/imageCache';
 import {
-  useRewardAnimation,
-} from '../context/RewardAnimationContext';
-import type { RewardAnimationRect } from '../context/RewardAnimationContext';
-import { useRewardToast } from '../context/RewardToastContext';
+  useRewardCelebrate,
+} from '../context/RewardCelebrateContext';
+import type { RewardCelebrateRect } from '../context/RewardCelebrateContext';
 
 type LessonRouteProp = RouteProp<{ params: { courseId: string; lessonId: string } }, 'params'>;
 
@@ -53,8 +52,7 @@ function formatBadgeTitle(badgeId: string): string {
 
 export default function LessonScreen() {
   const { courseAPI, userAPI } = useAPI();
-  const { emitRewardAnimation } = useRewardAnimation();
-  const { showRewardToast } = useRewardToast();
+  const { emitRewardAnimation } = useRewardCelebrate();
   const route = useRoute<LessonRouteProp>();
   const { courseId, lessonId } = route.params;
 
@@ -427,7 +425,7 @@ export default function LessonScreen() {
     };
   }, [showMiniPlayer, floatingVideoId]);
 
-  const handleFlashcardsCompleted = useCallback(({ source }: { source?: RewardAnimationRect }) => {
+  const handleFlashcardsCompleted = useCallback(({ source }: { source?: RewardCelebrateRect }) => {
     void (async () => {
       let result: RewardMutationResult;
       try {
@@ -445,10 +443,6 @@ export default function LessonScreen() {
           xpDelta: result.xpAwarded,
           tokenVariant: 'flashcards-image',
         });
-        showRewardToast({
-          kind: 'xp',
-          message: `+${result.xpAwarded} XP earned`,
-        });
       }
 
       result.badgeIdsEarned.forEach((badgeId) => {
@@ -458,10 +452,6 @@ export default function LessonScreen() {
           badgeId,
           source,
         });
-        showRewardToast({
-          kind: 'badge',
-          message: `Badge unlocked: ${formatBadgeTitle(badgeId)}`,
-        });
       });
 
       result.certificateIdsIssued.forEach((certificateId) => {
@@ -470,13 +460,9 @@ export default function LessonScreen() {
           type: 'certificate',
           source,
         });
-        showRewardToast({
-          kind: 'certificate',
-          message: 'Certificate unlocked',
-        });
       });
     })();
-  }, [courseId, lessonId, emitRewardAnimation, showRewardToast, userAPI]);
+  }, [courseId, lessonId, emitRewardAnimation, userAPI]);
 
   const handleQuizCompleted = useCallback(({
     score,
@@ -485,7 +471,7 @@ export default function LessonScreen() {
   }: {
     score: number;
     totalQuestions: number;
-    source?: RewardAnimationRect;
+    source?: RewardCelebrateRect;
   }) => {
     void (async () => {
       let result: RewardMutationResult;
@@ -503,10 +489,6 @@ export default function LessonScreen() {
           source,
           xpDelta: result.xpAwarded,
         });
-        showRewardToast({
-          kind: 'xp',
-          message: `+${result.xpAwarded} XP earned`,
-        });
       }
 
       result.badgeIdsEarned.forEach((badgeId) => {
@@ -516,10 +498,6 @@ export default function LessonScreen() {
           badgeId,
           source,
         });
-        showRewardToast({
-          kind: 'badge',
-          message: `Badge unlocked: ${formatBadgeTitle(badgeId)}`,
-        });
       });
 
       result.certificateIdsIssued.forEach((certificateId) => {
@@ -528,13 +506,9 @@ export default function LessonScreen() {
           type: 'certificate',
           source,
         });
-        showRewardToast({
-          kind: 'certificate',
-          message: 'Certificate unlocked',
-        });
       });
     })();
-  }, [courseId, lessonId, emitRewardAnimation, showRewardToast, userAPI]);
+  }, [courseId, lessonId, emitRewardAnimation, userAPI]);
 
   if (loading) {
     return (
@@ -673,11 +647,11 @@ export default function LessonScreen() {
 function BlockRenderer({ block, courseDetail, onFlashcardsCompleted, onQuizCompleted, onVideoPlay, onVideoStateChange, inlinePlayingVideoId, resumeInlineToken, resumeInlineVideoId, resumeInlineSeekTime }: {
   block: ContentBlock;
   courseDetail: CourseDetail | null;
-  onFlashcardsCompleted?: (payload: { source?: RewardAnimationRect }) => void;
+  onFlashcardsCompleted?: (payload: { source?: RewardCelebrateRect }) => void;
   onQuizCompleted?: (payload: {
     score: number;
     totalQuestions: number;
-    source?: RewardAnimationRect;
+    source?: RewardCelebrateRect;
   }) => void;
   onVideoPlay?: (videoId: string, yOffset: number, playerRef: React.RefObject<YoutubeIframeRef | null>) => void;
   onVideoStateChange?: (videoId: string, state: string) => void;
