@@ -262,7 +262,7 @@ export default function HomeScreen() {
                 </Text>
               )}
               <Text 
-                color="white" 
+                color="#99F6E4" 
                 fontSize={heroTitleFontSize} 
                 lineHeight={heroTitleLineHeight}
                 fontWeight="800"
