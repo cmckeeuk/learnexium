@@ -99,8 +99,8 @@ export default function ProgressScreen() {
   const totalXp = summary?.totalXp ?? 0;
   const level = summary?.level ?? 1;
   const nextLevelGap = Math.max(0, (summary?.nextLevelXp ?? 200) - totalXp);
-  const xpValueLabel = String(totalXp);
-  const xpFontSize = xpValueLabel.length >= 5 ? 20 : xpValueLabel.length >= 4 ? 24 : 29;
+  const xpLabel = `${totalXp} XP`;
+  const xpFontSize = xpLabel.length >= 8 ? 18 : xpLabel.length >= 6 ? 20 : 29;
   const hasRenderableData =
     summary !== null || badges.length > 0 || certificates.length > 0;
 
@@ -125,12 +125,9 @@ export default function ProgressScreen() {
               resizeMode="contain"
             />
             <View style={styles.heroXpChip}>
-              <View style={styles.heroXpChipContent}>
-                <Text style={[styles.heroXpValueText, { fontSize: xpFontSize }]}>
-                  {xpValueLabel}
-                </Text>
-                <Text style={styles.heroXpUnitText}>XP</Text>
-              </View>
+              <Text style={[styles.heroXpChipText, { fontSize: xpFontSize }]}>
+                {xpLabel}
+              </Text>
             </View>
           </View>
           <XStack marginTop="$0.5" gap="$4" alignItems="center">
@@ -170,17 +167,8 @@ export default function ProgressScreen() {
               </Text>
             ) : (
               <View style={styles.badgeGrid}>
-                {earnedBadges.map((badge, index) => (
-                  <View
-                    key={badge.badgeId}
-                    style={[
-                      styles.badgeCell,
-                      {
-                        marginRight:
-                          (index + 1) % 3 === 0 || index === earnedBadges.length - 1 ? 0 : 6,
-                      },
-                    ]}
-                  >
+                {earnedBadges.map((badge) => (
+                  <View key={badge.badgeId} style={styles.badgeCell}>
                     <View style={styles.badgeImageWrap}>
                         <Image
                           source={getBadgeImageSource(badge.badgeId)}
@@ -330,23 +318,24 @@ function ErrorInlineBanner({ message, onRetry }: { message: string; onRetry: () 
 
 const styles = StyleSheet.create({
   heroImageWrap: {
-    marginTop: -2,
+    marginTop: -100,
+    marginBottom: -70,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   heroImage: {
-    width: 200,
-    height: 200,
+    width: 320,
+    height: 370,
   },
   heroXpChip: {
     position: 'absolute',
     alignSelf: 'center',
     top: '50%',
-    marginTop: -73,
+    marginTop: -80,
     marginLeft: -3,
-    width: 90,
-    height: 90,
+    width: 110,
+    height: 110,
     borderRadius: 62,
     backgroundColor: 'rgba(9, 28, 59, 0.78)',
     borderWidth: 2,
@@ -355,23 +344,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
   },
-  heroXpChipContent: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroXpValueText: {
+  heroXpChipText: {
     color: '#FFFFFF',
     fontSize: 29,
     fontFamily: NATIVE_TITLE_FONT,
-    lineHeight: 30,
-    includeFontPadding: false,
-  },
-  heroXpUnitText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontFamily: NATIVE_TITLE_FONT,
-    lineHeight: 16,
-    marginTop: -2,
     includeFontPadding: false,
   },
   levelText: {
@@ -404,29 +380,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginHorizontal: -3,
+    justifyContent: 'space-between',
   },
   badgeCell: {
-    width: '31.8%',
+    width: '31.5%',
     marginBottom: 7,
     backgroundColor: '#EFF8F6',
     borderColor: '#C7DEDA',
     borderWidth: 1,
     borderRadius: 12,
-    paddingTop: Platform.OS === 'web' ? 14 : 8,
-    paddingBottom: Platform.OS === 'web' ? 12 : 8,
-    paddingHorizontal: 3,
+    paddingVertical: 3,
+    paddingHorizontal: 2,
   },
   badgeImageWrap: {
     width: '100%',
-    height: Platform.OS === 'web' ? 92 : 76,
+    height: 92,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeImage: {
-    width: Platform.OS === 'web' ? 88 : 72,
-    height: Platform.OS === 'web' ? 88 : 72,
+    width: 88,
+    height: 88,
   },
   badgeTitle: {
     textAlign: 'center',
