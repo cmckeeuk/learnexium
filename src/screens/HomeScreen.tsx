@@ -266,7 +266,7 @@ export default function HomeScreen() {
                 letterSpacing={-0.5}
                 style={nativeHeroHeadingFontFamily ? { fontFamily: nativeHeroHeadingFontFamily } : undefined}
               >
-                Hello Chris
+                {config.title}
               </Text>
               
               <Text 
