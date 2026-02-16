@@ -2,14 +2,14 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TouchableOpacity, Animated, Platform, View as RNView } from 'react-native';
 import { YStack, XStack, Text, View } from 'tamagui';
 import { Feather } from '@expo/vector-icons';
-import type { RewardAnimationRect } from '../../context/RewardAnimationContext';
+import type { RewardCelebrateRect } from '../../context/RewardCelebrateContext';
 
 interface FlashcardsBlockProps {
   cards: Array<{
     front: string;
     back: string;
   }>;
-  onCompleted?: (payload: { source?: RewardAnimationRect }) => void;
+  onCompleted?: (payload: { source?: RewardCelebrateRect }) => void;
 }
 
 export function FlashcardsBlock({ cards, onCompleted }: FlashcardsBlockProps) {

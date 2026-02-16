@@ -16,9 +16,9 @@ import LessonScreen from './screens/LessonScreen';
 import ProgressScreen from './screens/ProgressScreen';
 import { APIProvider } from './context/APIContext';
 import {
-  RewardAnimationProvider,
-  useRewardAnimation,
-} from './context/RewardAnimationContext';
+  RewardCelebrateProvider,
+  useRewardCelebrate,
+} from './context/RewardCelebrateContext';
 import { RewardToastProvider } from './context/RewardToastContext';
 import { ProgressTabAnchor } from './components/animations/ProgressTabAnchor';
 
@@ -88,7 +88,7 @@ function ProgressTabIcon({ color, size }: { color: string; size: number }) {
 }
 
 function AppNavigation() {
-  const { setProgressTabActive } = useRewardAnimation();
+  const { setProgressTabActive } = useRewardCelebrate();
   const lastRouteNameRef = useRef<string | null>(null);
 
   const syncActiveTab = useCallback(() => {
@@ -177,9 +177,9 @@ export default function App() {
     <TamaguiProvider config={config}>
       <APIProvider>
         <RewardToastProvider>
-          <RewardAnimationProvider>
+          <RewardCelebrateProvider>
             <AppNavigation />
-          </RewardAnimationProvider>
+          </RewardCelebrateProvider>
         </RewardToastProvider>
       </APIProvider>
     </TamaguiProvider>

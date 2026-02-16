@@ -8,6 +8,7 @@ import { CourseDetail, CourseSummary } from '../api/course/CourseAPI';
 import { CourseProgress } from '../api/user/UserAPI';
 import { useNavigation, useFocusEffect, StackActions } from '@react-navigation/native';
 import { buildVersionedImageUri, prefetchImages } from '../utils/imageCache';
+import { useRewardCelebrate } from '../context/RewardCelebrateContext';
 
 interface CourseWithProgress {
   summary: CourseSummary;
@@ -29,6 +30,7 @@ const nativeHeroHeadingFontFamily = Platform.select({
 
 export default function HomeScreen() {
   const { homeAPI, courseAPI, userAPI } = useAPI();
+  const { clearAnimationDedupe } = useRewardCelebrate();
   const navigation = useNavigation();
   const [config, setConfig] = useState<HomeConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,6 +215,7 @@ export default function HomeScreen() {
   const heroTitleLineHeight = Platform.OS === 'web' ? 44 : 40;
   const clearProgressForPreview = async () => {
     await userAPI.clearAllProgress();
+    clearAnimationDedupe();
     await loadData();
   };
   const openCoursesList = () => {

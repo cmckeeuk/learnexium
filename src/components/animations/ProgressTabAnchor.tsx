@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { View as RNView } from 'react-native';
 import {
-  useRewardAnimation,
-} from '../../context/RewardAnimationContext';
-import type { RewardAnimationTarget } from '../../context/RewardAnimationContext';
+  useRewardCelebrate,
+} from '../../context/RewardCelebrateContext';
+import type { RewardCelebrateTarget } from '../../context/RewardCelebrateContext';
 
 export function ProgressTabAnchor({
   target,
   children,
 }: {
-  target: RewardAnimationTarget;
+  target: RewardCelebrateTarget;
   children: React.ReactNode;
 }) {
   const ref = useRef<RNView>(null);
-  const { registerAnimationTarget } = useRewardAnimation();
+  const { registerAnimationTarget } = useRewardCelebrate();
 
   const measure = useCallback(() => {
     requestAnimationFrame(() => {
