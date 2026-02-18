@@ -8,6 +8,8 @@ import type {
 } from '../../context/RewardCelebrateContext';
 import { getRewardImageSource, XP_TOKEN_IMAGE } from '../../constants/rewardImages';
 
+const CELEBRATE_STAR_IMAGE = require('../../../assets/rewards/icons/celebrate-star.png');
+
 export interface ActiveRewardCelebrateAnimation {
   key: string;
   type: RewardCelebrateType;
@@ -121,6 +123,73 @@ function BottomCelebratePanel({ animation }: { animation: ActiveRewardCelebrateA
     extrapolate: 'clamp',
   });
 
+  const isCertificateCelebrate = animation.type === 'certificate' && !animation.reducedMotion;
+  const sparkleOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.12, 0.72, 1],
+    outputRange: [0, 1, 0.85, 0],
+    extrapolate: 'clamp',
+  });
+  const sparkleLift = animation.progress.interpolate({
+    inputRange: [0, 0.22, 0.55, 1],
+    outputRange: [16, -40, -180, -320],
+    extrapolate: 'clamp',
+  });
+
+  const sparkleDriftLeft = animation.progress.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, -20, -44],
+    extrapolate: 'clamp',
+  });
+  const sparkleDriftRight = animation.progress.interpolate({
+    inputRange: [0, 0.3, 1],
+    outputRange: [0, 20, 44],
+    extrapolate: 'clamp',
+  });
+  const fireOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.12, 0.68, 1],
+    outputRange: [0, 1, 0.82, 0],
+    extrapolate: 'clamp',
+  });
+  const fireRise = animation.progress.interpolate({
+    inputRange: [0, 0.2, 0.55, 1],
+    outputRange: [14, -36, -170, -300],
+    extrapolate: 'clamp',
+  });
+  const fireScale = animation.progress.interpolate({
+    inputRange: [0, 0.24, 0.55, 1],
+    outputRange: [0.5, 1.1, 1, 0.7],
+    extrapolate: 'clamp',
+  });
+
+  const burstRingScale = animation.progress.interpolate({
+    inputRange: [0, 0.25, 0.55, 1],
+    outputRange: [0.2, 1.35, 1.6, 1.8],
+    extrapolate: 'clamp',
+  });
+  const burstRingOpacity = animation.progress.interpolate({
+    inputRange: [0, 0.2, 0.55, 1],
+    outputRange: [0, 0.7, 0.22, 0],
+    extrapolate: 'clamp',
+  });
+
+  const t = animation.progress;
+  const oneMinusT = Animated.subtract(1, t);
+  const parabola = Animated.multiply(Animated.multiply(t, oneMinusT), 4);
+
+  const star1X = t.interpolate({ inputRange: [0, 1], outputRange: [0, -170] });
+  const star2X = t.interpolate({ inputRange: [0, 1], outputRange: [0, 160] });
+  const star3X = t.interpolate({ inputRange: [0, 1], outputRange: [0, -120] });
+  const star4X = t.interpolate({ inputRange: [0, 1], outputRange: [0, 120] });
+  const star5X = t.interpolate({ inputRange: [0, 1], outputRange: [0, -220] });
+  const star6X = t.interpolate({ inputRange: [0, 1], outputRange: [0, 220] });
+
+  const star1Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [18, -360] }), Animated.multiply(parabola, -120));
+  const star2Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [20, -350] }), Animated.multiply(parabola, -100));
+  const star3Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [24, -330] }), Animated.multiply(parabola, -90));
+  const star4Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [24, -330] }), Animated.multiply(parabola, -90));
+  const star5Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [30, -420] }), Animated.multiply(parabola, -130));
+  const star6Y = Animated.add(t.interpolate({ inputRange: [0, 1], outputRange: [30, -420] }), Animated.multiply(parabola, -130));
+
   return (
     <View pointerEvents="none" style={styles.overlay}>
       <Animated.View
@@ -144,6 +213,30 @@ function BottomCelebratePanel({ animation }: { animation: ActiveRewardCelebrateA
               },
             ]}
           />
+
+          {isCertificateCelebrate ? (
+            <>
+              <Animated.View style={[styles.burstRing, { opacity: burstRingOpacity, transform: [{ scale: burstRingScale }] }]} />
+
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starLg, { opacity: sparkleOpacity, transform: [{ translateX: star1X }, { translateY: star1Y }] }]} />
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starLg, { opacity: sparkleOpacity, transform: [{ translateX: star2X }, { translateY: star2Y }] }]} />
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starMd, { opacity: sparkleOpacity, transform: [{ translateX: star3X }, { translateY: star3Y }] }]} />
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starMd, { opacity: sparkleOpacity, transform: [{ translateX: star4X }, { translateY: star4Y }] }]} />
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starSm, { opacity: sparkleOpacity, transform: [{ translateX: star5X }, { translateY: star5Y }] }]} />
+              <Animated.Image source={CELEBRATE_STAR_IMAGE} style={[styles.starImage, styles.starSm, { opacity: sparkleOpacity, transform: [{ translateX: star6X }, { translateY: star6Y }] }]} />
+
+              <Animated.View style={[styles.fireDot, styles.fireDot1, { opacity: fireOpacity, transform: [{ translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDot, styles.fireDot2, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftLeft }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDot, styles.fireDot3, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftRight }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDotSmall, styles.fireDot4, { opacity: fireOpacity, transform: [{ translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDotSmall, styles.fireDot5, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftLeft }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDotSmall, styles.fireDot6, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftRight }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDot, styles.fireDot7, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftLeft }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDot, styles.fireDot8, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftRight }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDotSmall, styles.fireDot9, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftLeft }, { translateY: fireRise }, { scale: fireScale }] }]} />
+              <Animated.View style={[styles.fireDotSmall, styles.fireDot10, { opacity: fireOpacity, transform: [{ translateX: sparkleDriftRight }, { translateY: fireRise }, { scale: fireScale }] }]} />
+            </>
+          ) : null}
           <Animated.View
             style={[
               styles.tokenBubble,
@@ -216,6 +309,86 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     backgroundColor: 'rgba(212,255,248,0.7)',
+  },
+
+  sparkle: {
+    position: 'absolute',
+    zIndex: 5,
+  },
+
+  burstRing: {
+    position: 'absolute',
+    top: 16,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 3,
+    borderColor: 'rgba(253, 224, 71, 0.9)',
+    zIndex: 3,
+  },
+  starImage: {
+    position: 'absolute',
+    zIndex: 6,
+    resizeMode: 'contain',
+  },
+  starLg: { width: 48, height: 48, top: -2, left: '50%', marginLeft: -24 },
+  starMd: { width: 36, height: 36, top: 10, left: '50%', marginLeft: -18 },
+  starSm: { width: 28, height: 28, top: 22, left: '50%', marginLeft: -14 },
+  fireDot: {
+    position: 'absolute',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F97316',
+    zIndex: 4,
+  },
+  fireDotSmall: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#FDE047',
+    zIndex: 4,
+  },
+  fireDot1: {
+    top: 46,
+    left: '28%',
+  },
+  fireDot2: {
+    top: 42,
+    left: '16%',
+  },
+  fireDot3: {
+    top: 40,
+    right: '20%',
+  },
+  fireDot4: {
+    top: 52,
+    left: '44%',
+  },
+  fireDot5: {
+    top: 50,
+    left: '34%',
+  },
+  fireDot6: {
+    top: 50,
+    right: '30%',
+  },
+  fireDot7: {
+    top: 36,
+    left: '8%',
+  },
+  fireDot8: {
+    top: 34,
+    right: '8%',
+  },
+  fireDot9: {
+    top: 60,
+    left: '20%',
+  },
+  fireDot10: {
+    top: 58,
+    right: '18%',
   },
   tokenBubble: {
     width: 116,
