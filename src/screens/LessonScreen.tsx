@@ -96,10 +96,30 @@ export default function LessonScreen() {
     if (completedRef.current) return;
     completedRef.current = true;
     setLessonState('completed');
-    void userAPI.markLessonCompleted(courseId, lessonId).catch((error) => {
-      console.warn('[LessonScreen] Failed to persist lesson completion', error);
-    });
-  }, [courseId, lessonId, userAPI]);
+
+    void (async () => {
+      try {
+        const beforeCerts = await userAPI.getCertificates().catch(() => []);
+        await userAPI.markLessonCompleted(courseId, lessonId);
+
+        const afterCerts = await userAPI.getCertificates().catch(() => beforeCerts);
+
+        const knownIds = new Set(beforeCerts.map((c) => c.certificateId));
+        const newCourseCert = afterCerts.find(
+          (cert) => cert.courseId === courseId && !knownIds.has(cert.certificateId),
+        );
+
+        if (newCourseCert) {
+          emitRewardAnimation({
+            eventId: `anim:${courseId}:${lessonId}:certificate:${newCourseCert.certificateId}:lesson-complete`,
+            type: 'certificate',
+          });
+        }
+      } catch (error) {
+        console.warn('[LessonScreen] Failed to persist lesson completion', error);
+      }
+    })();
+  }, [courseId, emitRewardAnimation, lessonId, userAPI]);
 
   const tryCompleteByScrollPosition = useCallback((
     contentHeight: number,
